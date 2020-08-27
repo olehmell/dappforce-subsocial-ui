@@ -1,5 +1,5 @@
 import { accountUrl, spacesFollowedByAccountUrl, spacesOwnedByAccountUrl } from 'src/components/utils/urls'
-import { GlobalOutlined, BlockOutlined, ProfileOutlined, BellOutlined, StarOutlined, UserOutlined, BookOutlined, PlusOutlined } from '@ant-design/icons'
+import { GlobalOutlined, BlockOutlined, DownloadOutlined, ProfileOutlined, BellOutlined, StarOutlined, UserOutlined, BookOutlined, PlusOutlined } from '@ant-design/icons'
 
 export type Divider = 'Divider'
 
@@ -70,6 +70,11 @@ export const buildAuthorizedMenu = (myAddress: string): MenuItem[] => {
       name: 'New space',
       page: [ '/spaces/new' ],
       icon: PlusOutlined
+    },
+    {
+      name: 'Import spaces',
+      page: [ '/import-spaces' ],
+      icon: DownloadOutlined
     },
     Divider,
     ...DefaultMenu
