@@ -9,6 +9,7 @@ import { PageContent } from 'src/components/main/PageWrapper';
 import { DragDrop } from './Dragger';
 import { Loading } from '../utils'
 import Section from '../utils/Section';
+import { MIN_HANDLE_LEN } from 'src/config/ValidationsConfig';
 
 const log = newLogger('ImportSpaces')
 
@@ -68,10 +69,11 @@ export const Import = () => {
         const links = [ Website, Twitter, Medium, Github ].filter(nonEmptyStr)
         const tags = Tags.split(',').filter(nonEmptyStr)
         const space = { about, links, image, email, name, tags }
-        console.log(space)
+        const twitterUsername = Twitter.split('/').pop()
+        const handle = twitterUsername && twitterUsername.length > MIN_HANDLE_LEN ? twitterUsername : undefined
         const cid = await ipfs.saveSpace(space)
 
-        return readyApi.tx.spaces.createSpace(...[ new OptionId(), new OptionText(), new IpfsContent(cid) ])
+        return readyApi.tx.spaces.createSpace(...[ new OptionId(), new OptionText(handle), new IpfsContent(cid) ])
       })
 
       console.log(promiseTxs)
