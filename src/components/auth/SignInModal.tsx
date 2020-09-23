@@ -38,7 +38,7 @@ const getModalContent = (kind: ModalKind, isSteps: IsSteps) => {
         content.title = <><span className='flipH'>🎉</span> Success <span>🎉</span></>
 
         content.body = <>
-          <div className='mb-4'>You have successfully signed in. Now you can:</div>
+          <div className='my-3'>You have successfully signed in. Now you can:</div>
           <OnBoardingButton />
         </>
         return content
@@ -100,7 +100,7 @@ export const SignInModalView = ({ open, hide, kind, isSteps }: ModalViewProps) =
 
   return title ? <Modal
     visible={open}
-    title={ <h3 style={{ fontWeight: 'bold' }}>{title}</h3>}
+    title={ <h3 className='font-weight-bold m-0'>{title}</h3>}
     footer={null}
     width={350}
     className='text-center DfSignInModal'
@@ -108,7 +108,7 @@ export const SignInModalView = ({ open, hide, kind, isSteps }: ModalViewProps) =
   >
     <>
       {warn && <Alert
-        className='mb-4'
+        className='mb-3'
         message={warn}
         type="warning"
         closable={false}

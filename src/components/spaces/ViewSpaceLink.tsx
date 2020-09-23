@@ -1,6 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
-import { HasSpaceIdOrHandle, spaceUrl } from '../utils/urls'
+import { HasSpaceIdOrHandle, spaceUrl } from '../urls'
 
 type Props = {
   space: HasSpaceIdOrHandle
@@ -20,7 +20,7 @@ export const ViewSpaceLink = ({
 
   return (
     <Link href='/spaces/[spaceId]' as={spaceUrl(space)}>
-      <a className={className} title={hint}>{title}</a>
+      <a className={'DfBlackLink ' + className} title={hint}>{title}</a>
     </Link>
   )
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { INFINITE_SCROLL_PAGE_SIZE } from '../../config/ListData.config';
 import { hexToBn } from '@polkadot/util';
@@ -12,7 +12,11 @@ import Section from '../utils/Section';
 import { PostPreviewList } from '../posts/view-post/PostPreviewList';
 import { Loading } from '../utils';
 
-export const MyFeed = () => {
+type MyFeedProps = {
+  withTitle?: boolean
+}
+
+export const MyFeed = ({ withTitle }: MyFeedProps) => {
   const myAddress = useMyAddress()
 
   const [ items, setItems ] = useState<Activity[]>([]);
@@ -25,21 +29,21 @@ export const MyFeed = () => {
     getNextPage(0).catch(err => new Error(err));
   }, [ myAddress ]);
 
-  if (!myAddress) return <NotAuthorized />;
+  const getNextPage = useCallback(async (actualOffset: number = offset) => {
+    if (!myAddress) return
 
-  const getNextPage = async (actualOffset: number = offset) => {
     const isFirstPage = actualOffset === 0;
     const data = await getNewsFeed(myAddress, actualOffset, INFINITE_SCROLL_PAGE_SIZE);
     if (data.length < INFINITE_SCROLL_PAGE_SIZE) setHasMore(false);
     setItems(isFirstPage ? data : items.concat(data));
     setOffset(actualOffset + INFINITE_SCROLL_PAGE_SIZE);
-  };
+  }, [ myAddress ]);
 
   const totalCount = items && items.length;
 
   const postIds = items.map(x => hexToBn(x.post_id))
 
-  const renderInfiniteScroll = () =>
+  const infiniteScroll = useMemo(() =>
     <InfiniteScroll
       dataLength={totalCount}
       next={getNextPage}
@@ -48,17 +52,19 @@ export const MyFeed = () => {
       loader={<Loading />}
     >
       <PostPreviewList postIds={postIds} />
-    </InfiniteScroll>
+    </InfiniteScroll>, [ totalCount ])
+
+  if (!myAddress) return <NotAuthorized />;
 
   return <>
     <HeadMeta title='My Feed' />
-    <Section title={`My Feed (${totalCount})`}>
+    <Section title={withTitle ? `My Feed (${totalCount})` : null}>
       {totalCount === 0
         ? <NoData description='Your feed is empty' />
-        : renderInfiniteScroll()
+        : infiniteScroll
       }
     </Section>
   </>
 }
 
-export default MyFeed
+export default React.memo(MyFeed)

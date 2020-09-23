@@ -6,9 +6,10 @@ import React, { useState } from 'react';
 import { SpaceFollowersModal } from '../profiles/AccountsListModal';
 import { ZERO } from '../utils';
 import { MutedSpan } from '../utils/MutedText';
-import { isMyAddress } from '../auth/MyAccountContext';
 import { Pluralize } from '../utils/Plularize';
-import { spaceUrl } from '../utils/urls';
+import { spaceUrl } from '../urls';
+import AboutSpaceLink from './AboutSpaceLink';
+import { isMySpace } from './helpers';
 
 type Props = {
   space: Space
@@ -18,24 +19,24 @@ export const SpaceStatsRow = ({ space }: Props) => {
   const {
     id,
     score,
-    created: { account },
     posts_count,
     followers_count: followers
   } = space;
 
   const [ followersOpen, setFollowersOpen ] = useState(false);
 
-  const isMySpace = isMyAddress(account);
   const postsCount = new BN(posts_count).eq(ZERO) ? 0 : new BN(posts_count);
   const followersClassName = 'DfStatItem DfGreyLink ' + (!followers && 'disable')
 
   return (
-    <div className={`${isMySpace && 'MySpace'}`}>
+    <div className={`${isMySpace(space) && 'MySpace DfStatItem'}`}>
       <Link href='/spaces/[spaceId]' as={spaceUrl(space)}>
         <a className={'DfStatItem ' + (!postsCount && 'disable')}>
           <Pluralize count={postsCount} singularText='Post'/>
         </a>
       </Link>
+
+      <MutedSpan><AboutSpaceLink className='DfGreyLink DfStatItem' space={space} title='About' /></MutedSpan>
 
       <div onClick={() => setFollowersOpen(true)} className={followersClassName}>
         <Pluralize count={followers} singularText='Follower'/>

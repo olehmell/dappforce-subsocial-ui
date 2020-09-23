@@ -6,11 +6,11 @@ import { SpaceData, PostWithSomeDetails } from '@subsocial/types/dto'
 import { Space, PostId } from '@subsocial/types/substrate/interfaces'
 import { AnyAccountId } from '@subsocial/types/substrate'
 import { isMyAddress } from 'src/components/auth/MyAccountContext';
-import { editSpaceUrl, newPostUrl, HasSpaceIdOrHandle } from 'src/components/utils/urls';
+import { editSpaceUrl, newPostUrl, HasSpaceIdOrHandle } from 'src/components/urls';
 import HiddenSpaceButton from '../HiddenSpaceButton';
 import { BareProps } from 'src/components/utils/types';
 import { Pluralize } from 'src/components/utils/Plularize';
-import ListData from 'src/components/utils/DataList';
+import DataList from 'src/components/utils/DataList';
 import PostPreview from 'src/components/posts/view-post/PostPreview';
 import useSubsocialEffect from 'src/components/api/useSubsocialEffect';
 import { Loading } from 'src/components/utils';
@@ -20,7 +20,7 @@ import NoData from 'src/components/utils/EmptyList';
 import HiddenAlert, { BaseHiddenAlertProps } from 'src/components/utils/HiddenAlert';
 import { useRouter } from 'next/router';
 import { getSpaceId } from 'src/components/substrate';
-import { isEmptyStr } from '@subsocial/utils';
+import { isEmptyStr, isDef } from '@subsocial/utils';
 import ButtonLink from 'src/components/utils/ButtonLink';
 import BaseAvatar, { BaseAvatarProps } from 'src/components/utils/DfAvatar';
 import ViewSpaceLink from '../ViewSpaceLink';
@@ -34,9 +34,10 @@ type DropdownMenuProps = BareProps & {
   vertical?: boolean
 }
 
+export const isMySpace = (space?: Space) => isDef(space) && isMyAddress(space.owner)
+
 export const DropdownMenu = ({ spaceData: { struct }, vertical, style, className }: DropdownMenuProps) => {
-  const { id, owner } = struct
-  const isMySpace = isMyAddress(owner)
+  const { id } = struct
 
   const spaceKey = `space-${id.toString()}`
 
@@ -62,7 +63,7 @@ export const DropdownMenu = ({ spaceData: { struct }, vertical, style, className
       </Menu.Item>
     </Menu>
 
-  return isMySpace
+  return isMySpace(struct)
     ? <Dropdown overlay={menu} placement='bottomRight'>
       <EllipsisOutlined rotate={vertical ? 90 : 0} style={style} className={className} />
     </Dropdown>
@@ -116,19 +117,19 @@ type PostsOnSpacePageProps = {
   posts: PostWithSomeDetails[]
 }
 
-type LoadHiddenPostByOwnerProps = {
+type LoadUnlistedPostByOwnerProps = {
   owner: AnyAccountId
   postIds: PostId[]
 }
 
-export const useLoadHiddenPostByOwner = ({ owner, postIds }: LoadHiddenPostByOwnerProps) => {
+export const useLoadUnlistedPostByOwner = ({ owner, postIds }: LoadUnlistedPostByOwnerProps) => {
   const isMySpaces = isMyAddress(owner)
   const [ myHiddenPosts, setMyHiddenPosts ] = useState<PostWithSomeDetails[]>()
 
   useSubsocialEffect(({ subsocial }) => {
     if (!isMySpaces) return setMyHiddenPosts([])
 
-    subsocial.findHiddenPostsWithAllDetails(postIds)
+    subsocial.findUnlistedPostsWithAllDetails(postIds)
       .then(setMyHiddenPosts)
 
   }, [ postIds.length, isMySpaces ])
@@ -141,13 +142,13 @@ export const useLoadHiddenPostByOwner = ({ owner, postIds }: LoadHiddenPostByOwn
 
 const HiddenPostList = ({ spaceData, postIds }: PostsOnSpacePageProps) => {
   const { struct: space } = spaceData
-  const { myHiddenPosts, isLoading } = useLoadHiddenPostByOwner({ owner: space.owner, postIds })
+  const { myHiddenPosts, isLoading } = useLoadUnlistedPostByOwner({ owner: space.owner, postIds })
 
   if (isLoading) return <Loading />
 
   const hiddenPostsCount = myHiddenPosts.length
-  return hiddenPostsCount ? <ListData
-    title={<Pluralize count={hiddenPostsCount} singularText={'Hidden post'} />}
+  return hiddenPostsCount ? <DataList
+    title={<Pluralize count={hiddenPostsCount} singularText={'Unlisted post'} />}
     dataSource={myHiddenPosts}
     renderItem={(item) =>
       <PostPreview
@@ -163,9 +164,6 @@ const HiddenPostList = ({ spaceData, postIds }: PostsOnSpacePageProps) => {
 export const PostPreviewsOnSpace = (props: PostsOnSpacePageProps) => {
   const { spaceData, posts } = props
   const { struct: space } = spaceData
-  const { owner } = space
-
-  const isMySpace = isMyAddress(owner)
 
   const postsSectionTitle = () =>
     <div className='w-100 d-flex justify-content-between align-items-baseline'>
@@ -175,11 +173,11 @@ export const PostPreviewsOnSpace = (props: PostsOnSpacePageProps) => {
       {posts.length > 0 && <CreatePostButton space={space} title={'Write Post'} className='mb-2' />}
     </div>
 
-  const VisiblePostList = () => <ListData
+  const VisiblePostList = () => <DataList
     title={postsSectionTitle()}
     dataSource={posts}
     noDataDesc='No posts yet'
-    noDataExt={isMySpace
+    noDataExt={isMySpace(space)
     // TODO replace with Next Link + URL builder
       ? <CreatePostButton space={space} />
       : null
@@ -210,7 +208,7 @@ export const isHiddenSpace = (space: Space) => isHidden(space)
 
 export const SpaceNotFound = () => <NoData description={'Space not found'} />
 
-export const useLoadHiddenSpace = (address: AnyAccountId) => {
+export const useLoadUnlistedSpace = (address: AnyAccountId) => {
   const isMySpace = isMyAddress(address)
   const { query: { spaceId } } = useRouter()
   const idOrHandle = spaceId as string
@@ -239,9 +237,17 @@ export const useLoadHiddenSpace = (address: AnyAccountId) => {
   }
 }
 
-export const NewSpaceButton = ({ children, ...buttonProps }: ButtonProps) => {
+export const CreateSpaceButton = ({
+  children,
+  type = 'primary',
+  ghost = true,
+  ...otherProps
+}: ButtonProps) => {
+  const props = { type, ghost, ...otherProps }
   const newSpacePath = '/spaces/new'
-  return <ButtonLink href={newSpacePath} as={newSpacePath} {...buttonProps}>{children}</ButtonLink>
+  return <ButtonLink href={newSpacePath} as={newSpacePath} {...props}>
+    {children || <span><PlusOutlined /> Create space</span>}
+  </ButtonLink>
 }
 
 type SpaceAvatarProps = BaseAvatarProps & {
@@ -249,3 +255,11 @@ type SpaceAvatarProps = BaseAvatarProps & {
 }
 
 export const SpaceAvatar = (props: SpaceAvatarProps) => <ViewSpaceLink space={props.space} title={<BaseAvatar {...props} />} />
+
+type AllSpacesLinkProps = BareProps & {
+  title?: React.ReactNode
+}
+
+export const AllSpacesLink = ({ title = 'All', ...otherProps }: AllSpacesLinkProps) => <Link href='/spaces/all' as='/spaces/all'>
+  <a className='DfGreyLink text-uppercase' style={{ fontSize: '1rem' }} {...otherProps}>{title}</a>
+</Link>

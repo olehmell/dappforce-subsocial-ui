@@ -1,18 +1,14 @@
-import React, { FunctionComponent, useEffect } from 'react';
+import React, { FunctionComponent, useEffect, useMemo } from 'react';
 import { ReactiveBase } from '@appbaseio/reactivesearch';
 import { AllElasticIndexes } from '../config/ElasticConfig';
 import { Layout, Drawer } from 'antd';
-import { isBrowser, isMobile } from 'react-device-detect';
 import { useSidebarCollapsed } from '../components/utils/SideBarCollapsedContext';
-import { newLogger } from '@subsocial/utils';
-import { isHomePage } from 'src/components/utils';
-import { ElasticNodeURL } from 'src/components/utils/env';
+import { elasticNodeURL } from 'src/components/utils/env';
 
-import Menu from './SideMenu';
 import dynamic from 'next/dynamic';
-const TopMenu = dynamic(() => import('./TopMenu'), { ssr: false });
 
-const log = newLogger('Navigation')
+const TopMenu = dynamic(() => import('./TopMenu'), { ssr: false });
+const Menu = dynamic(() => import('./SideMenu'), { ssr: false });
 
 const { Header, Sider, Content } = Layout;
 
@@ -20,23 +16,20 @@ interface Props {
   children: React.ReactNode;
 }
 
-log.debug('Are we in a browser?', isBrowser);
-
 const HomeNav = () => {
   const { state: { collapsed } } = useSidebarCollapsed();
   return <Sider
     className='DfSider'
-    width='255'
+    width='265'
     trigger={null}
     collapsible
     collapsed={collapsed}
-    defaultCollapsed={false}
   >
     <Menu />
   </Sider>;
 };
 
-const DefaultNav: FunctionComponent = ({ children }) => {
+const DefaultNav: FunctionComponent = () => {
   const { state: { collapsed }, hide } = useSidebarCollapsed();
 
   useEffect(() => hide(), [ false ])
@@ -57,14 +50,13 @@ const DefaultNav: FunctionComponent = ({ children }) => {
 
 export const Navigation = (props: Props): JSX.Element => {
   const { children } = props;
+  const { state: { asDrawer } } = useSidebarCollapsed()
 
-  const asDrawer = !isHomePage() || isMobile
-
-  const MainContent = () => <Content className='DfPageContent'>{children}</Content>;
+  const content = useMemo(() => <Content className='DfPageContent'>{children}</Content>, [ children ]);
 
   return <ReactiveBase
     className='fontSizeNormal'
-    url={ElasticNodeURL}
+    url={elasticNodeURL}
     app={AllElasticIndexes.join(',')}
   >
     <Layout>
@@ -73,7 +65,7 @@ export const Navigation = (props: Props): JSX.Element => {
       </Header>
       <Layout className='ant-layout-has-sider'>
         {asDrawer ? <DefaultNav /> : <HomeNav />}
-        <MainContent />
+        {content}
       </Layout>
     </Layout>
   </ReactiveBase>;

@@ -33,14 +33,14 @@ export const AboutSpacePage: NextPage<Props> = (props) => {
 
   const { owner } = props;
   const space = spaceData.struct;
-  const { created: { account, time } } = space;
+  const { created: { time }, owner: spaceOwnerAddress } = space;
 
   const [ content ] = useState(spaceData?.content || {} as SpaceContent);
   const { name, about, image, tags } = content;
 
   const SpaceAuthor = () =>
     <AuthorPreview
-      address={account}
+      address={spaceOwnerAddress}
       owner={owner}
       withFollowButton
       isShort={true}
@@ -53,7 +53,7 @@ export const AboutSpacePage: NextPage<Props> = (props) => {
   // TODO extract WithSpaceNav
 
   return <PageContent>
-    <HeadMeta title={title} desc={mdToText(about)} image={image} />
+    <HeadMeta title={title} desc={mdToText(about, { escapeHtml: true })} image={image} />
     <Section className='DfContentPage' level={1} title={title}>
 
       <div className='DfRow mt-3'>

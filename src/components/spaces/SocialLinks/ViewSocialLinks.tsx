@@ -1,22 +1,16 @@
 import React from 'react'
 import { NamedLinks } from '@subsocial/types'
-import { getSocialLinkType, getLinksAttr } from './utils'
+import { getLinkBrand, getLinkIcon } from './utils'
 import { MailOutlined } from '@ant-design/icons'
 
 type SocialLinkProps = {
   link: string
 }
 
-const attrByLink = (link: string) => {
-  const title = getSocialLinkType(link)
-
-  return getLinksAttr(title)
-}
-
 const SocialLink = ({ link }: SocialLinkProps) => {
-  const { title, icon } = attrByLink(link)
-  return <a href={link} title={title} className='DfBlackLink mr-3'>
-    {icon}
+  const brand = getLinkBrand(link)
+  return <a href={link} title={brand} className='DfBlackLink ml-3'>
+    {getLinkIcon(brand)}
   </a>
 }
 
@@ -25,7 +19,7 @@ type SocialLinksProps = {
 }
 
 export const ViewSocialLinks = ({ links }: SocialLinksProps) => {
-  return <>{(links as string[]).map(link => <SocialLink key={link} link={link} />)}</>
+  return <>{(links as string[]).map((link, i) => <SocialLink key={`social-link-${i}`} link={link} />)}</>
 }
 
 type ContactInfoProps = SocialLinksProps & {
@@ -37,6 +31,6 @@ export const ContactInfo = ({ links, email }: ContactInfoProps) => {
 
   return <div>
     {links && <ViewSocialLinks links={links} />}
-    {email && <a href={`maito:${email}`} title='Email'><MailOutlined /></a>}
+    {email && <a className={`DfBlackLink ${links && 'ml-3'}`} href={`maito:${email}`} title='Email'><MailOutlined /></a>}
   </div>
 }

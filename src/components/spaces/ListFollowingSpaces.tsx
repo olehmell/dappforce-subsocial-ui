@@ -1,36 +1,44 @@
 import { SpaceData } from '@subsocial/types/dto';
-import { isEmptyArray, nonEmptyArr } from '@subsocial/utils';
+import { nonEmptyArr } from '@subsocial/utils';
 import { NextPage } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React from 'react';
-import { isMobile } from 'react-device-detect';
 
-import ListData from '../utils/DataList';
+import DataList from '../utils/DataList';
 import { HeadMeta } from '../utils/HeadMeta';
 import { useSidebarCollapsed } from '../utils/SideBarCollapsedContext';
 import { getSubsocialApi } from '../utils/SubsocialConnect';
-import { spaceIdForUrl, spaceUrl } from '../utils/urls';
-import { ViewSpacePage } from './ViewSpace';
+import { spaceIdForUrl, spaceUrl } from '../urls';
+import { ViewSpace } from './ViewSpace';
 import ButtonLink from '../utils/ButtonLink';
+import { PageLink } from 'src/layout/SideMenuItems';
+import BaseAvatar from '../utils/DfAvatar';
+import { isMyAddress } from '../auth/MyAccountContext';
+import { toShortAddress } from '../utils';
 
 type Props = {
   spacesData: SpaceData[]
 };
 
-export const ListFollowingSpacesPage: NextPage<Props> = (props) => {
+export const ListFollowingSpaces = (props: Props) => {
   const { spacesData } = props;
+  const { query: { address: queryAddress } } = useRouter()
+
+  const address = queryAddress as string
   const totalCount = nonEmptyArr(spacesData) ? spacesData.length : 0;
-  const title = `My Subscriptions (${totalCount})`
+
+  const title = isMyAddress(address)
+    ? `My Subscriptions (${totalCount})`
+    : `Subscriptions of ${toShortAddress(address)}` // TODO show title | username | extension name | short addresss
 
   return (
     <div className='ui huge relaxed middle aligned divided list ProfilePreviews'>
-      <HeadMeta title={title} desc='The spaces you follow on Subsocial' />
-      <ListData
+      <DataList
         title={title}
         dataSource={spacesData}
         renderItem={(item, index) => (
-          <ViewSpacePage {...props} key={index} spaceData={item} withFollowButton/>
+          <ViewSpace {...props} key={index} spaceData={item} preview withFollowButton />
         )}
         noDataDesc='You are not subscribed to any space yet'
         noDataExt={<ButtonLink href='/spaces/all' as='/spaces/all'>Explore spaces</ButtonLink>}
@@ -39,6 +47,15 @@ export const ListFollowingSpacesPage: NextPage<Props> = (props) => {
   );
 };
 
+
+export const ListFollowingSpacesPage: NextPage<Props> = (props) => {
+  const { query: { address } } = useRouter()
+  return <>
+    <HeadMeta title={`Subscriptions of ${address}`} desc={`Spaces that ${address} follows on Subsocial`} />
+    <ListFollowingSpaces {...props} />
+  </>
+}
+
 ListFollowingSpacesPage.getInitialProps = async (props): Promise<Props> => {
   const { query: { address } } = props;
   const subsocial = await getSubsocialApi()
@@ -46,7 +63,7 @@ ListFollowingSpacesPage.getInitialProps = async (props): Promise<Props> => {
 
   // TODO sort space ids in a about order (don't forget to sort by id.toString())
   const followedSpaceIds = await substrate.spaceIdsFollowedByAccount(address as string)
-  const spacesData = await subsocial.findVisibleSpaces(followedSpaceIds);
+  const spacesData = await subsocial.findPublicSpaces(followedSpaceIds);
 
   return {
     spacesData
@@ -55,10 +72,10 @@ ListFollowingSpacesPage.getInitialProps = async (props): Promise<Props> => {
 
 // TODO extract to a separate file:
 
-const SpaceLink = (props: { item: SpaceData }) => {
+export const SpaceLink = (props: { item: SpaceData }) => {
   const { item } = props;
   const { pathname, query } = useRouter();
-  const { toggle } = useSidebarCollapsed();
+  const { toggle, state: { asDrawer } } = useSidebarCollapsed();
 
   if (!item) return null;
 
@@ -68,17 +85,17 @@ const SpaceLink = (props: { item: SpaceData }) => {
 
   return (
     <Link
-      key={idForUrl}
+      key={idForUrl}PlusOutlined
       href='/spaces/[spaceId]'
       as={spaceUrl(item.struct)}
     >
       <a className={`DfMenuSpaceLink ${isSelectedSpace ? 'DfSelectedSpace' : ''}`}>
-        <ViewSpacePage
+        <ViewSpace
           key={idForUrl}
           spaceData={item}
           miniPreview
           imageSize={28}
-          onClick={() => isMobile && toggle()}
+          onClick={() => asDrawer && toggle()}
           withFollowButton={false}
         />
       </a>
@@ -86,21 +103,9 @@ const SpaceLink = (props: { item: SpaceData }) => {
   )
 }
 
-export const RenderFollowedList = (props: { followedSpacesData: SpaceData[] }) => {
-  const { followedSpacesData } = props;
-  const { state: { collapsed } } = useSidebarCollapsed()
+export const buildFollowedItems = (followedSpacesData: SpaceData[]): PageLink[] => followedSpacesData.map(({ struct, content }) => ({
+    name: content?.name || '',
+    page: [ '/spaces/[spaceId]', spaceUrl(struct) ],
+    icon: <span className='SpaceMenuIcon'><BaseAvatar address={struct.owner} avatar={content?.image} size={24} /></span>
+  }))
 
-  if (isEmptyArray(followedSpacesData)) {
-    return collapsed ? null : (
-      <div className='text-center m-2'>
-        <ButtonLink href='/spaces/all' as='/spaces/all'>Explore Spaces</ButtonLink>
-      </div>
-    )
-  }
-
-  return <>{followedSpacesData.map((item) =>
-    <SpaceLink key={item.struct.id.toString()} item={item} />
-  )}</>
-}
-
-export default RenderFollowedList;

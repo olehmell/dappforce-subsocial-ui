@@ -1,36 +1,10 @@
 import { Space, Post, SpaceId } from '@subsocial/types/substrate/interfaces'
-import { stringifyText, stringifyNumber, AnyAddress, AnyText, stringifyAddress } from '../substrate'
-import { newLogger, nonEmptyStr, notDef, nonEmptyArr } from '@subsocial/utils'
+import { stringifyNumber, AnyAddress, AnyText, stringifyAddress } from '../substrate'
+import { newLogger, notDef } from '@subsocial/utils'
 import BN from 'bn.js'
+import { slugify, stringifySubUrls } from './helpers'
 
 const log = newLogger('URLs')
-
-function slugify (text?: AnyText): string | undefined {
-  let slug: string | undefined
-  if (nonEmptyStr(text)) {
-    slug = stringifyText(text)
-    if (slug && !slug.startsWith('@')) {
-      slug = '@' + slug
-    }
-  }
-  return slug
-}
-
-function stringifySubUrls (...subUrls: string[]): string {
-  if (nonEmptyArr(subUrls)) {
-    const res: string[] = [ '' ]
-    subUrls.forEach(url => {
-      if (nonEmptyStr(url)) {
-        if (url.startsWith('/')) {
-          url = url.substring(1) // Drop the first '/'
-        }
-        res.push(url)
-      }
-    })
-    return res.join('/')
-  }
-  return ''
-}
 
 // Space URLs
 // --------------------------------------------------
@@ -111,7 +85,7 @@ export type HasAddressOrHandle = {
   handle?: AnyText
 }
 
-export function accountIdForUrl ({ address, handle }: HasAddressOrHandle, ...subUrls: string[]): string {
+export function accountIdForUrl ({ address, handle }: HasAddressOrHandle): string {
   if (notDef(address) && notDef(handle)) {
     log.warn(`${accountIdForUrl.name}: Both address and handle are undefined`)
     return ''
@@ -124,17 +98,7 @@ function urlWithAccount (baseUrl: string, account: HasAddressOrHandle, ...subUrl
   return stringifySubUrls(baseUrl, accountIdForUrl(account), ...subUrls)
 }
 
-/** /profile/[address] */
+/** /accounts/[address] */
 export function accountUrl (account: HasAddressOrHandle, ...subUrls: string[]): string {
-  return urlWithAccount('profile', account, ...subUrls)
-}
-
-/** /spaces/my/[address] */
-export function spacesOwnedByAccountUrl (account: HasAddressOrHandle, ...subUrls: string[]): string {
-  return urlWithAccount('spaces/my', account, ...subUrls)
-}
-
-/** /spaces/following/[address] */
-export function spacesFollowedByAccountUrl (account: HasAddressOrHandle, ...subUrls: string[]): string {
-  return urlWithAccount('spaces/following', account, ...subUrls)
+  return urlWithAccount('accounts', account, ...subUrls)
 }

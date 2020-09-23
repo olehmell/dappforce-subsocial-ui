@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Menu, Badge } from 'antd';
 import Router, { useRouter } from 'next/router';
 import { useIsSignIn, useMyAddress } from '../components/auth/MyAccountContext';
-import { isMobile, isBrowser } from 'react-device-detect';
 import { useSidebarCollapsed } from '../components/utils/SideBarCollapsedContext';
 import { Loading } from '../components/utils';
-import { RenderFollowedList } from '../components/spaces/ListFollowingSpaces';
+import { buildFollowedItems } from '../components/spaces/ListFollowingSpaces';
 import useSubsocialEffect from 'src/components/api/useSubsocialEffect';
 import Link from 'next/link';
 import { SpaceData } from '@subsocial/types/dto';
@@ -14,47 +13,58 @@ import { useNotifCounter } from '../components/utils/NotifCounter';
 import { buildAuthorizedMenu, DefaultMenu, isDivider, PageLink } from './SideMenuItems';
 import { OnBoardingCard } from 'src/components/onboarding';
 import { useAuth } from 'src/components/auth/AuthContext';
+import { useResponsiveSize } from 'src/components/responsive';
+import { SpaceId } from '@subsocial/types/substrate/interfaces';
+import { AllSpacesLink } from 'src/components/spaces/helpers';
 
 const log = newLogger(SideMenu.name)
 
 function SideMenu () {
-  const { toggle, state: { collapsed, triggerFollowed } } = useSidebarCollapsed();
+  const { hide, state: { collapsed, asDrawer } } = useSidebarCollapsed();
   const { pathname } = useRouter();
   const myAddress = useMyAddress();
   const isLoggedIn = useIsSignIn();
   const { unreadCount } = useNotifCounter()
   const { state: { showOnBoarding } } = useAuth()
+  const { isNotMobile } = useResponsiveSize()
 
   const [ followedSpacesData, setFollowedSpacesData ] = useState<SpaceData[]>([]);
   const [ loaded, setLoaded ] = useState(false);
 
-  useSubsocialEffect(({ subsocial, substrate }) => {
+  useSubsocialEffect(({ subsocial, substrate: { api } }) => {
     if (!myAddress) return;
 
     let isSubscribe = true;
+    let unsub: () => any;
 
-    const loadSpacesData = async () => {
+    const subLoadSpacesData = async () => {
       setLoaded(false);
-      const ids = await substrate.spaceIdsFollowedByAccount(myAddress)
-      const spacesData = await subsocial.findVisibleSpaces(ids);
-      if (isSubscribe) {
-        setFollowedSpacesData(spacesData);
-        setLoaded(true);
-      }
+      const readyApi = await api;
+      unsub = await readyApi.query.spaceFollows.spacesFollowedByAccount(myAddress, async ids => {
+        const spacesData = await subsocial.findPublicSpaces(ids as unknown as SpaceId[]);
+        if (isSubscribe) {
+          setFollowedSpacesData(spacesData);
+          setLoaded(true);
+        }
+      })
+
     };
 
-    loadSpacesData().catch(err =>
+    subLoadSpacesData().catch(err =>
       log.error(`Failed to load spaces followed by the current user. ${err}`))
 
-    return () => { isSubscribe = false; };
-  }, [ triggerFollowed, myAddress ]);
+    return () => {
+      isSubscribe = false;
+      unsub && unsub()
+    };
+  }, [ myAddress ]);
 
   const menuItems = isLoggedIn && myAddress
     ? buildAuthorizedMenu(myAddress)
     : DefaultMenu
 
   const goToPage = ([ url, as ]: string[]) => {
-    isMobile && toggle()
+    asDrawer && hide()
     Router.push(url, as).catch(err =>
       log.error(`Failed to navigate to a selected page. ${err}`))
   }
@@ -64,13 +74,17 @@ function SideMenu () {
     return <Badge count={unreadCount} className="site-badge-count-4" />
   }
 
-  const renderPageLink = (item: PageLink) => {
-    const Icon = item.icon
+  const renderPageLink = useCallback((item: PageLink) => {
+    const icon = item.icon
+    if (item.hidden) {
+      return null
+    }
+
     return item.isAdvanced
       ? (
         <Menu.Item key={item.page[0]} >
           <a href='/bc'>
-            <Icon />
+            {icon}
             <span>{item.name}</span>
           </a>
         </Menu.Item>
@@ -78,27 +92,35 @@ function SideMenu () {
         <Menu.Item key={item.page[0]} onClick={() => goToPage(item.page)}>
           <Link href={item.page[0]} as={item.page[1]}>
             <a>
-              <Icon />
-              <span>{item.name}</span>
+              {icon}
+              <span className='MenuItemName'>{item.name}</span>
               {item.isNotifications && renderNotificationsBadge()}
             </a>
           </Link>
         </Menu.Item>
       )
-  }
+  }, [])
 
-  const renderSubscriptions = () => (collapsed && isEmptyArray(followedSpacesData)) ? null : (
-    <Menu.ItemGroup
-      className={`DfSideMenu--FollowedSpaces text-center ${collapsed && 'collapsed'}`}
+  const renderSubscriptions = () => {
+    if (isEmptyArray(followedSpacesData)) {
+      return collapsed ? null : (
+        <div className='text-center m-2'>
+          <AllSpacesLink title='Exlore Spaces' />
+        </div>
+      )
+    }
+
+    return <Menu.ItemGroup
+      className={`DfSideMenu--FollowedSpaces ${collapsed && 'collapsed'}`}
       key='followed'
-      title={collapsed ? 'Subs.' : 'My subscriptions'}
+      title={collapsed && !asDrawer ? 'Subs.' : 'My subscriptions'}
     >
       {loaded
-        ? <RenderFollowedList followedSpacesData={followedSpacesData} />
+        ? buildFollowedItems(followedSpacesData).map(renderPageLink)
         : <div className='text-center m-2'><Loading /></div>
       }
     </Menu.ItemGroup>
-  )
+  }
 
   return (
     <Menu
@@ -111,7 +133,7 @@ function SideMenu () {
         ? <Menu.Divider key={'divider-' + i} />
         : renderPageLink(item)
       )}
-      {isBrowser && showOnBoarding && !collapsed && <OnBoardingCard />}
+      {isNotMobile && showOnBoarding && !collapsed && <OnBoardingCard />}
       {isLoggedIn && <Menu.Divider />}
       {isLoggedIn && renderSubscriptions()}
     </Menu>

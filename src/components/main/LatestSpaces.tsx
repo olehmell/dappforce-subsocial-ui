@@ -1,9 +1,9 @@
 import React from 'react';
 import { Space } from '@subsocial/types/substrate/interfaces';
-import ListData from '../utils/DataList';
-import { ViewSpacePage } from '../spaces/ViewSpace';
+import DataList from '../utils/DataList';
+import { ViewSpace } from '../spaces/ViewSpace';
 import { SpaceData } from '@subsocial/types/dto';
-import { NewSpaceButton } from '../spaces/helpers';
+import { CreateSpaceButton, AllSpacesLink } from '../spaces/helpers';
 
 type Props = {
   spacesData: SpaceData[]
@@ -13,13 +13,16 @@ export const LatestSpaces = (props: Props) => {
   const { spacesData = [] } = props
   const spaces = spacesData.filter((x) => typeof x.struct !== 'undefined')
 
-  return <ListData
-    title={`Latest spaces`}
+  return <DataList
+    title={<span className='d-flex justify-content-between align-items-end w-100'>
+      {'Latest spaces'}
+      <AllSpacesLink />
+    </span>}
     dataSource={spaces}
     noDataDesc='No spaces created yet'
-    noDataExt={<NewSpaceButton type='primary' ghost >Create space</NewSpaceButton>}
+    noDataExt={<CreateSpaceButton />}
     renderItem={(item) =>
-      <ViewSpacePage
+      <ViewSpace
         {...props}
         key={(item.struct as Space).id.toString()}
         spaceData={item}

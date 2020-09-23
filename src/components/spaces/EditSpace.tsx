@@ -9,7 +9,7 @@ import { TxFailedCallback, TxCallback } from 'src/components/substrate/Substrate
 import { SpaceUpdate, OptionBool, OptionIpfsContent, OptionOptionText, OptionText, OptionId, IpfsContent } from '@subsocial/types/substrate/classes'
 import { IpfsCid } from '@subsocial/types/substrate/interfaces'
 import { SpaceContent } from '@subsocial/types'
-import { newLogger } from '@subsocial/utils'
+import { newLogger, isEmptyStr } from '@subsocial/utils'
 import { useSubsocialApi } from '../utils/SubsocialApiContext'
 import { useMyAddress } from '../auth/MyAccountContext'
 import { DfForm, DfFormButtons, minLenError, maxLenError } from '../forms'
@@ -20,9 +20,12 @@ import { NAME_MIN_LEN, NAME_MAX_LEN, DESC_MAX_LEN, MIN_HANDLE_LEN, MAX_HANDLE_LE
 import { NewSocialLinks } from './SocialLinks/NewSocialLinks'
 import { UploadAvatar } from '../uploader'
 import { MailOutlined } from '@ant-design/icons'
+import { SubsocialSubstrateApi } from '@subsocial/api/substrate'
+import { resolveCidOfContent } from '@subsocial/api/utils'
+
 const log = newLogger('EditSpace')
 
-const MAX_TAGS = 5
+const MAX_TAGS = 10
 
 type Content = SpaceContent
 
@@ -50,12 +53,26 @@ function getInitialValues ({ space }: FormProps): FormValues {
   return {}
 }
 
+const isHandleUnique = async (substrate: SubsocialSubstrateApi, handle: string, mySpaceId?: BN) => {
+  if (isEmptyStr(handle)) return true
+
+  const spaceIdByHandle = await substrate.getSpaceIdByHandle(handle.trim().toLowerCase())
+
+  if (!spaceIdByHandle) return true
+
+  if (mySpaceId) return spaceIdByHandle.eq(mySpaceId)
+
+  return !spaceIdByHandle
+
+}
+
 export function InnerForm (props: FormProps) {
   const [ form ] = Form.useForm()
-  const { ipfs } = useSubsocialApi()
+  const { ipfs, substrate } = useSubsocialApi()
   const [ IpfsCid, setIpfsCid ] = useState<IpfsCid>()
 
   const { space, minHandleLen, maxHandleLen } = props
+
   const initialValues = getInitialValues(props)
   const tags = initialValues.tags || []
 
@@ -73,7 +90,7 @@ export function InnerForm (props: FormProps) {
 
     /** Returns `undefined` if CID hasn't been changed. */
     function getCidIfChanged (): IpfsCid | undefined {
-      const prevCid = stringifyText(space?.struct?.content.asIpfs)
+      const prevCid = resolveCidOfContent(space?.struct?.content)
       return prevCid !== cid.toString() ? cid : undefined
     }
 
@@ -152,13 +169,23 @@ export function InnerForm (props: FormProps) {
 
       <Form.Item
         name={fieldName('handle')}
-        label='URL handle'
+        label='Handle'
+        help='This should be a unique handle that will be used in a URL of your space'
         hasFeedback
         rules={[
           { pattern: /^[A-Za-z0-9_]+$/, message: 'Handle can have only letters (a-z, A-Z), numbers (0-9) and underscores (_).' },
           { min: minHandleLen, message: minLenError('Handle', minHandleLen) },
-          { max: maxHandleLen, message: maxLenError('Handle', maxHandleLen) }
-          // TODO test that handle is unique via a call to Substrate
+          { max: maxHandleLen, message: maxLenError('Handle', maxHandleLen) },
+          ({ getFieldValue }) => ({
+            async validator () {
+              const handle = getFieldValue(fieldName('handle'))
+              const isUnique = await isHandleUnique(substrate, handle, space?.struct.id)
+              if (isUnique) {
+                return Promise.resolve();
+              }
+              return Promise.reject(new Error('This handle is already taken. Please choose another.'));
+            }
+          })
         ]}
       >
         <Input placeholder='You can use a-z, 0-9 and underscores' />
@@ -195,9 +222,9 @@ export function InnerForm (props: FormProps) {
 
       <Form.Item
         name={fieldName('email')}
-        label={<MailOutlined />}
+        label={<span><MailOutlined /> Email address</span>}
         rules={[
-          { type: 'email', message: 'Should be a valid email' }
+          { pattern: /\S+@\S+\.\S+/, message: 'Should be a valid email' }
         ]}>
         <Input type='email' placeholder='Email address' />
       </Form.Item>
